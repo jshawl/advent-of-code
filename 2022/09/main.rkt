@@ -2,47 +2,66 @@
 
 (define input (file->lines "input.txt"))
 
-(define cycles
-  (foldl
-   (λ (x result)
-     (let
-         ([add (regexp-match #rx"addx (.*)" x)]
-          [register (last result)])
-       (cond
-         [add (append result (list register) (list (+ (string->number (last add)) register)))]
-         [else (append result (list register))])
-       )) '(1) input))
+(define moves
+  (hash
+   "R" '(1 0)
+   "U" '(0 -1)
+   "L" '(-1 0)
+   "D" '(0 1)))
 
-(define (signal-strength cycle)
-  (* cycle (list-ref cycles (- cycle 1))))
+(define rope
+  (hash
+   "H" '(0 0)
+   "T" '(0 0)))
+
+(define (next a b [greedy? #f])
+  (let ([diff (- a b)])
+    (if (< (abs diff) (if greedy? 1 2))
+        b
+        (if (< diff 0)
+            (- b 1)
+            (+ b 1)))))
+
+(define (follow h t)
+  (let ([hx (first h)]
+        [hy (last h)]
+        [tx (first t)]
+        [ty (last t)])
+    (list
+     (next hx tx (> (abs (- hy ty)) 1))
+     (next hy ty (> (abs (- hx tx)) 1)))))
+
+(define (move-head a b)
+  (list
+   (+ (first a) (first b))
+   (+ (last a) (last b))))
+
+(define (move direction count init)
+  (foldl
+   (λ (_ state)
+     (let ([h (move-head
+               (hash-ref (hash-ref state 'rope) "H")
+               (hash-ref moves direction))])
+       (let ([t (follow h (hash-ref (hash-ref state 'rope) "T"))])
+         (hash
+          'rope (hash "H" h "T" t)
+          'tail-positions (append
+                           (hash-ref state 'tail-positions)
+                           (list t))))))
+   init
+   (range 1 (add1 count))))
+
+(define all-moves
+  (foldl
+   (λ (line result)
+     (let ([parts (string-split line)])
+       (move
+        (first parts)
+        (string->number (last parts))
+        result)))
+   (hash 'rope rope 'tail-positions '())
+   input))
 
 ; part 1
-(+
- (signal-strength 20)
- (signal-strength 60)
- (signal-strength 100)
- (signal-strength 140)
- (signal-strength 180)
- (signal-strength 220))
-
-; part 2
-(define (group-n n lst [all '()])
-  (if
-   (empty? lst)
-   all
-   (group-n
-    n
-    (if (< (length lst) n) '() (drop lst n))
-    (append all (list (if (< (length lst) n) lst (take lst n)))))))
-
-(define crt
-  (map
-   (λ (x i)
-     (if
-      (member (modulo (+ i 1) 40) (range x (+ x 3)))
-      "#"
-      "."))
-   cycles
-   (range (length cycles))))
-
-(map (λ (x) (println (string-join x ""))) (group-n 40 crt))
+(println "should be 5619")
+(length (remove-duplicates (hash-ref all-moves 'tail-positions)))
