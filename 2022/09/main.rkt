@@ -10,9 +10,9 @@
    "D" '(0 1)))
 
 (define rope
-  (hash
-   "H" '(0 0)
-   "T" '(0 0)))
+  (map
+   (λ (_) '(0 0))
+   (range 10)))
 
 (define (next a b [greedy? #f])
   (let ([diff (- a b)])
@@ -36,18 +36,27 @@
    (+ (first a) (first b))
    (+ (last a) (last b))))
 
+(define (follow-all h r)
+  (foldl
+   (λ (x result)
+     (append
+      result
+      (list (follow (last result) x))))
+   (list h)
+   r))
+
 (define (move direction count init)
   (foldl
    (λ (_ state)
      (let ([h (move-head
-               (hash-ref (hash-ref state 'rope) "H")
+               (first (hash-ref state 'rope))
                (hash-ref moves direction))])
-       (let ([t (follow h (hash-ref (hash-ref state 'rope) "T"))])
+       (let ([next-rope (follow-all h (drop (hash-ref state 'rope) 1))])
          (hash
-          'rope (hash "H" h "T" t)
+          'rope next-rope
           'tail-positions (append
                            (hash-ref state 'tail-positions)
-                           (list t))))))
+                           (list (last next-rope)))))))
    init
    (range 1 (add1 count))))
 
@@ -62,6 +71,4 @@
    (hash 'rope rope 'tail-positions '())
    input))
 
-; part 1
-(println "should be 5619")
 (length (remove-duplicates (hash-ref all-moves 'tail-positions)))
