@@ -7,18 +7,15 @@
    (file->lines "input.txt")))
 
 (define max-row (sub1 (length input)))
+
 (define max-col (sub1 (length (first input))))
 
 (define (reduce-grid proc init lst)
   (foldl
    (λ(x row result)
-     ;  (println (list "row result:" result))
      (foldl
       (λ(cur col r)
-        ; (println (list "col result:" r))
         (proc row col cur r))
-      ; (println (list row col cur result))
-      ; result)
       result
       x
       (range (length x))))
@@ -35,8 +32,7 @@
    '(0 1)   ; bottom
    '(-1 1)  ; bottom-left
    '(-1 0)  ; left
-   '(-1 -1) ; top-left
-   ))
+   '(-1 -1))) ; top-left
 
 (define (next-pos a b)
   (list
@@ -55,23 +51,31 @@
    (λ (x result)
      (or
       result
-      (is-symbol? (apply grid-ref (next-pos (list col row) x)))))
+      (if
+       (is-symbol?
+        (apply grid-ref (next-pos (list col row) x)))
+       (next-pos (list col row) x)
+       #f)))
    #f
    adjacencies))
 
-; (println "check 2 0:")
-; (has-adjacent-symbol? 2 0)
+(define (hash-append hsh key value)
+  (let ([key-exists? (hash-has-key? hsh key)])
+    (hash-set
+     hsh
+     key
+     (if key-exists?
+         (append (hash-ref hsh key) (list value))
+         (list value)))))
 
 (define
   reduced
   (reduce-grid
-   (λ(row col cur all)
-     (println (list "checking" cur col row))
+   (λ (row col cur all)
      (let ([number (regexp-match #rx"[0-9]" cur)]
            [scanned (hash-ref all 'scanned)]
            [valid-numbers (hash-ref all 'valid-numbers)]
            [valid? (or (hash-ref all 'valid) (has-adjacent-symbol? col row))])
-       (println (list cur "valid?" valid?))
        (if number
            (hash 'scanned (append scanned number) 'valid valid? 'valid-numbers valid-numbers)
            (hash
@@ -80,12 +84,19 @@
             'valid-numbers (if (empty? scanned)
                                valid-numbers
                                (if (hash-ref all 'valid) ; previous valid, not current
-                                   (append valid-numbers (list (string->number (string-join scanned ""))))
+                                   (hash-append valid-numbers valid? (string->number (string-join scanned "")))
                                    valid-numbers)
                                )))
        ))
-   (hash 'scanned '() 'valid-numbers '() 'valid #f)
+   (hash 'scanned '() 'valid-numbers (hash) 'valid #f)
    input))
 
-; (foldl + 0 (hash-ref reduced 'valid-numbers))
-(hash-ref reduced 'valid-numbers)
+(foldl
+ +
+ 0
+ (filter-map
+  (λ (x)
+    (and
+     (eq? 2 (length (drop x 1)))
+     (apply * (drop x 1))))
+  (hash->list (hash-ref reduced 'valid-numbers))))
